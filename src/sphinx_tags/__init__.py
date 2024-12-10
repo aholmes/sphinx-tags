@@ -324,6 +324,10 @@ def tagpage(tags, outdir, title, extension, tags_index_head):
 
     if "md" in extension:
         content = []
+        content.append("---")
+        content.append("orphan: true")
+        content.append("---")
+        content.append("")
         content.append("(tagoverview)=")
         content.append("")
         content.append(f"# {title}")
