@@ -202,7 +202,7 @@ class Tag:
         if "md" in extension:
             filename = f"{self.file_basename}.md"
             content.append(f"({ref_label})=")
-            content.append(f"# {tags_page_title}: {self.name}")
+            content.append(f"# {tags_page_title}{self.name}")
             content.append("")
             content.append("```{toctree}")
             content.append("---")
@@ -214,7 +214,7 @@ class Tag:
             content.append("```")
         else:
             filename = f"{self.file_basename}.rst"
-            header = f"{tags_page_title}: {self.name}"
+            header = f"{tags_page_title}{self.name}"
             content.append(f".. _{ref_label}:")
             content.append("")
             content.append(header)
