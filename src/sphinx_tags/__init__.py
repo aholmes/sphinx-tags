@@ -248,7 +248,6 @@ class Tag:
         with open(
             os.path.join(srcdir, tags_output_dir, filename), "w", encoding="utf8"
         ) as f:
-            print(content)
             f.write("\n".join(content))
 
 
