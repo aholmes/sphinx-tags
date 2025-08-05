@@ -14,6 +14,7 @@ from sphinx.util.docutils import SphinxDirective
 from sphinx.util.logging import getLogger
 from sphinx.util.matching import get_matching_files
 from sphinx.util.rst import textwidth
+from sphinx.application import Sphinx
 
 __version__ = "0.4"
 
@@ -56,7 +57,7 @@ class TagLinks(SphinxDirective):
         if not (self.arguments or self.content):
             raise ExtensionError("No tags passed to 'tags' directive.")
 
-        page_tags = []
+        page_tags: list[str] = []
         # normalize white space and remove "\n"
         if self.arguments:
             page_tags.extend(
@@ -111,7 +112,7 @@ class TagLinks(SphinxDirective):
 
         return [result]
 
-    def _get_plaintext_node(self, tag: str, file_basename: str) -> List[nodes.Node]:
+    def _get_plaintext_node(self, tag: str, file_basename: str) -> nodes.reference:
         """Get a plaintext reference link for the given tag"""
         link = Path(self.env.app.config.tags_output_dir) / f"{file_basename}/"
         return nodes.reference(refuri="/" + str(link), text=tag)
@@ -152,19 +153,21 @@ class TagLinks(SphinxDirective):
 class Tag:
     """A tag contains entries"""
 
-    def __init__(self, name):
-        self.items = []
+    def __init__(self, name: str):
+        self.items: list[Entry] = []
         self.name = _normalize_display_tag(name)
         self.file_basename = _normalize_tag(name, dashes=True)
 
     def create_file(
         self,
-        items,
-        extension,
-        tags_output_dir,
-        srcdir,
-        tags_page_title,
-        tags_page_header,
+        items: "list[Entry]",
+        extension: str,
+        tags_output_dir: Path,
+        srcdir: Path,
+        tags_page_title: str,
+        tags_page_header: str,
+        tags_overview_title: str,
+        tags: "dict[str, Tag]"
     ):
         """Create file with list of documents associated with a given tag in
         toctree format.
@@ -195,10 +198,10 @@ class Tag:
 
         """
         # Get sorted file paths for tag pages, relative to /docs/_tags
-        tag_page_paths = sorted([i.relpath(srcdir) for i in items])
+        tag_page_paths = sorted([i.relpath(str(srcdir)) for i in items])
         ref_label = f"sphx_tag_{self.file_basename}"
 
-        content = []
+        content: list[str] = []
         if "md" in extension:
             filename = f"{self.file_basename}.md"
             content.append(f"({ref_label})=")
@@ -228,9 +231,22 @@ class Tag:
                 content.append(f"    ../{path}")
 
         content.append("")
+        content.append("----")
+        content.append("")
+        content.append(tags_overview_title)
+        content.append("")
+        content.append("")
+        tag_values = [(len(tag.items), tag.name) for tag in tags.values()]
+        tag_values.sort(key=lambda tag: tag[1].casefold())
+        tag_values.sort(key=lambda tag: tag[0], reverse=True)
+        for tag in tag_values:
+            content.append(f":ref:`{tag[1]}` ({tag[0]}) | ")
+        content[-1] = content[-1][:-3]
+        content.append("")
         with open(
             os.path.join(srcdir, tags_output_dir, filename), "w", encoding="utf8"
         ) as f:
+            print(content)
             f.write("\n".join(content))
 
 
@@ -256,9 +272,7 @@ class Entry:
                 "Unknown file extension. Currently, only .rst, .md .ipynb are supported."
             )
 
-        # tagline = [line for line in self.lines if tagstart in line]
-        # tagblock is all content until the next new empty line
-        tagblock = []
+        tagblock: list[str] = []
         reading = False
         for line in self.lines:
             line = line.strip()
@@ -278,14 +292,14 @@ class Entry:
         if tagblock:
             self.tags = [_normalize_display_tag(tag) for tag in tagblock if tag]
 
-    def assign_to_tags(self, tag_dict):
+    def assign_to_tags(self, tag_dict: dict[str, Tag]):
         """Append ourself to tags"""
         for tag in self.tags:
             if tag not in tag_dict:
                 tag_dict[tag] = Tag(tag)
             tag_dict[tag].items.append(self)
 
-    def relpath(self, root_dir) -> str:
+    def relpath(self, root_dir: str) -> str:
         """Get this entry's path relative to the given root directory"""
         return Path(os.path.relpath(self.filepath, root_dir)).as_posix()
 
@@ -311,17 +325,25 @@ def _normalize_display_tag(tag: str) -> str:
     return re.sub(r"\s+", " ", tag)
 
 
-def tagpage(tags, outdir, title, extension, tags_index_head):
+def tagpage(
+    tags: dict[str, Tag],
+    outdir: str,
+    title: str,
+    extension: str,
+    tags_index_head: str
+):
     """Creates Tag overview page.
 
     This page contains a list of all available tags.
 
     """
 
-    tags = list(tags.values())
+    tags_values = [(len(tag.items), tag.name, tag.file_basename) for tag in tags.values()]
+    tags_values.sort(key=lambda tag: tag[1].casefold())
+    tags_values.sort(key=lambda tag: tag[0], reverse=True)
 
     if "md" in extension:
-        content = []
+        content: list[str] = []
         content.append("---")
         content.append("orphan: true")
         content.append("---")
@@ -336,8 +358,11 @@ def tagpage(tags, outdir, title, extension, tags_index_head):
         content.append(f"caption: {tags_index_head}")
         content.append("maxdepth: 1")
         content.append("---")
-        for tag in sorted(tags, key=lambda t: t.name):
-            content.append(f"{tag.name} ({len(tag.items)}) <{tag.file_basename}>")
+        tag_values = [(len(tag.items), tag.name) for tag in tags.values()]
+        tag_values.sort(key=lambda tag: tag[1].casefold())
+        tag_values.sort(key=lambda tag: tag[0], reverse=True)
+        for tag in tags_values:
+            content.append(f"{tag[1]} ({tag[0]}) <{tag[2]}>")
         content.append("```")
         content.append("")
         filename = os.path.join(outdir, "tagsindex.md")
@@ -355,9 +380,9 @@ def tagpage(tags, outdir, title, extension, tags_index_head):
         content.append(f"    :caption: {tags_index_head}")
         content.append("    :maxdepth: 1")
         content.append("")
-        for tag in sorted(tags, key=lambda t: t.name):
+        for tag in tags_values:
             content.append(
-                f"    {tag.name} ({len(tag.items)}) <{tag.file_basename}.rst>"
+                f"    {tag[1]} ({tag[0]}) <{tag[2]}.rst>"
             )
         content.append("")
         filename = os.path.join(outdir, "tagsindex.rst")
@@ -366,10 +391,10 @@ def tagpage(tags, outdir, title, extension, tags_index_head):
         f.write("\n".join(content))
 
 
-def assign_entries(app):
+def assign_entries(app: Sphinx):
     """Assign all found entries to their tag."""
-    pages = []
-    tags = {}
+    pages: list[Entry] = []
+    tags: dict[str, Tag] = {}
 
     # Get document paths in the project that match specified file extensions
     doc_paths = get_matching_files(
@@ -386,7 +411,7 @@ def assign_entries(app):
     return tags, pages
 
 
-def update_tags(app):
+def update_tags(app: Sphinx):
     """Update tags according to pages found"""
     if app.config.tags_create_tags:
         tags_output_dir = Path(app.config.tags_output_dir)
@@ -401,6 +426,7 @@ def update_tags(app):
         # Create pages for each tag
         tags, pages = assign_entries(app)
 
+        # Create tags overview page
         for tag in tags.values():
             tag.create_file(
                 [item for item in pages if tag.name in item.tags],
@@ -409,9 +435,10 @@ def update_tags(app):
                 app.srcdir,
                 app.config.tags_page_title,
                 app.config.tags_page_header,
+                app.config.tags_overview_title,
+                tags
             )
 
-        # Create tags overview page
         tagpage(
             tags,
             os.path.join(app.srcdir, tags_output_dir),
@@ -419,6 +446,7 @@ def update_tags(app):
             app.config.tags_extension,
             app.config.tags_index_head,
         )
+
         logger.info("Tags updated", color="white")
     else:
         logger.info(
@@ -426,7 +454,7 @@ def update_tags(app):
         )
 
 
-def setup(app):
+def setup(app: Sphinx) -> dict[str, str | bool | int]:
     """Setup for Sphinx."""
 
     # Create config keys (with default values)
