@@ -111,9 +111,7 @@ class TagLinks(SphinxDirective):
 
         return [result]
 
-    def _get_plaintext_node(
-        self, tag: str, file_basename: str
-    ) -> List[nodes.Node]:
+    def _get_plaintext_node(self, tag: str, file_basename: str) -> List[nodes.Node]:
         """Get a plaintext reference link for the given tag"""
         link = Path(self.env.app.config.tags_output_dir) / f"{file_basename}/"
         return nodes.reference(refuri="/" + str(link), text=tag)
