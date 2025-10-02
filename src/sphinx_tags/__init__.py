@@ -198,7 +198,7 @@ class Tag:
 
         """
         # Get sorted file paths for tag pages, relative to /docs/_tags
-        tag_page_paths = sorted([i.relpath(str(srcdir)) for i in items])
+        tag_page_paths = sorted([i.relpath(str(srcdir)) for i in items], reverse=True)
         ref_label = f"sphx_tag_{self.file_basename}"
 
         content: list[str] = []
