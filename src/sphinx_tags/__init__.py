@@ -102,7 +102,7 @@ class TagLinks(SphinxDirective):
                 result += self._get_badge_node(tag, file_basename, relative_tag_dir)
                 tag_separator = " "
             else:
-                result += self._get_plaintext_node(tag, file_basename, relative_tag_dir)
+                result += self._get_plaintext_node(tag, file_basename)
                 tag_separator = f"{self.separator} "
             if not count == len(page_tags):
                 result += nodes.inline(text=tag_separator)
@@ -112,12 +112,10 @@ class TagLinks(SphinxDirective):
 
         return [result]
 
-    def _get_plaintext_node(
-        self, tag: str, file_basename: str, relative_tag_dir: Path
-    ) -> nodes.reference:
+    def _get_plaintext_node(self, tag: str, file_basename: str) -> nodes.reference:
         """Get a plaintext reference link for the given tag"""
-        link = relative_tag_dir / f"{file_basename}.html"
-        return nodes.reference(refuri=str(link), text=tag)
+        link = Path(self.env.app.config.tags_output_dir) / f"{file_basename}.html"
+        return nodes.reference(refuri="/" + str(link), text=tag)
 
     def _get_badge_node(
         self, tag: str, file_basename: str, relative_tag_dir: Path
